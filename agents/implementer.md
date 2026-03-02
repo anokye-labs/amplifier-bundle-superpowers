@@ -107,6 +107,7 @@ If you can't check all boxes, consult the TDD reference below for what went wron
 For detailed anti-patterns, gate functions, code examples, and troubleshooting:
 
 @superpowers:context/tdd-depth.md
+@foundation:context/LANGUAGE_PHILOSOPHY.md
 
 ## Output Format
 

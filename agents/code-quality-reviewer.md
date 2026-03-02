@@ -159,3 +159,5 @@ For Python projects, also run `python_check` to verify code quality (linting, fo
 - Inconsistent naming
 - Dead code or commented-out code
 - Missing or misleading comments
+
+@foundation:context/LANGUAGE_PHILOSOPHY.md

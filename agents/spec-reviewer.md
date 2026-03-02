@@ -147,3 +147,5 @@ For each change made:
 - Validation rules different from spec
 - Return values/formats not matching spec
 - Side effects not mentioned in spec
+
+@foundation:context/LANGUAGE_PHILOSOPHY.md
