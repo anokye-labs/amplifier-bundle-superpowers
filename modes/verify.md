@@ -19,6 +19,8 @@ mode:
       - delegate
   
   default_action: block
+  allowed_transitions: [finish, debug, execute-plan, brainstorm, write-plan]
+  allow_clear: false
 ---
 
 VERIFY MODE: Evidence before claims. Always.

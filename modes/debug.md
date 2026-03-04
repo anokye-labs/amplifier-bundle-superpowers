@@ -16,6 +16,8 @@ mode:
       - bash
   
   default_action: block
+  allowed_transitions: [verify, brainstorm, execute-plan]
+  allow_clear: false
 ---
 
 DEBUG MODE: Systematic debugging. Rigid process. No shortcuts.

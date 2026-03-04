@@ -20,6 +20,8 @@ mode:
       - bash
   
   default_action: block
+  allowed_transitions: [write-plan, debug]
+  allow_clear: false
 ---
 
 BRAINSTORM MODE: You facilitate design refinement through collaborative dialogue.

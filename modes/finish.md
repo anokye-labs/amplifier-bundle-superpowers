@@ -20,6 +20,8 @@ mode:
       - edit_file
   
   default_action: block
+  allowed_transitions: [execute-plan, brainstorm]
+  allow_clear: true
 ---
 
 FINISH MODE: Complete development work with structured options.

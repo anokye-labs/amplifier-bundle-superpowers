@@ -20,6 +20,8 @@ mode:
       - bash
   
   default_action: block
+  allowed_transitions: [verify, debug, brainstorm, write-plan]
+  allow_clear: false
 ---
 
 EXECUTE-PLAN MODE: You are an ORCHESTRATOR, not an implementer.

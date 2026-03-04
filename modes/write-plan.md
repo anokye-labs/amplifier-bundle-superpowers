@@ -20,6 +20,8 @@ mode:
       - bash
   
   default_action: block
+  allowed_transitions: [execute-plan, brainstorm, debug]
+  allow_clear: false
 ---
 
 WRITE-PLAN MODE: You orchestrate plan creation. The agent writes the plan.
