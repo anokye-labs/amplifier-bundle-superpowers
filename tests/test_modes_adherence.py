@@ -330,11 +330,10 @@ class TestModeContentEnrichment:
         )
 
     def test_debug_has_architecture_escalation(self) -> None:
-        """debug.md contains '3' and 'architecture' (3-attempt architecture escalation)."""
+        """debug.md contains '3 attempts' phrase for the Three-Fix architecture escalation rule."""
         content = _read_mode("debug.md")
-        assert "3" in content, "debug.md: missing '3' (for 3-attempt escalation rule)"
-        assert "architecture" in content.lower(), (
-            "debug.md: missing 'architecture' in architecture escalation guidance"
+        assert "3 attempts" in content, (
+            "debug.md: missing '3 attempts' (for Three-Fix architecture escalation rule)"
         )
 
     def test_debug_has_human_partner_signals(self) -> None:
@@ -386,13 +385,10 @@ class TestModeContentEnrichment:
         )
 
     def test_write_plan_has_file_structure_planning(self) -> None:
-        """write-plan.md contains file structure planning guidance with 'file' and 'structure'."""
+        """write-plan.md contains the exact Step 2.5 heading for file structure planning."""
         content = _read_mode("write-plan.md")
-        assert "file" in content.lower(), (
-            "write-plan.md: missing 'file' (expected file structure planning guidance)"
-        )
-        assert "structure" in content.lower(), (
-            "write-plan.md: missing 'structure' (expected file structure planning guidance)"
+        assert "Step 2.5: Plan File Structure" in content, (
+            "write-plan.md: missing 'Step 2.5: Plan File Structure' heading"
         )
 
 
