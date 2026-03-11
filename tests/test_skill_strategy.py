@@ -86,3 +86,33 @@ class TestSkillCount:
             assert not (SKILLS_DIR / skill).exists(), (
                 f"Expected skill '{skill}' to be removed but it still exists"
             )
+
+
+class TestSharedAntiRationalization:
+    """Tests for the shared anti-rationalization context file."""
+
+    SHARED_FILE = REPO_ROOT / 'context' / 'shared-anti-rationalization.md'
+
+    def test_file_exists(self):
+        """The shared anti-rationalization context file must exist."""
+        assert self.SHARED_FILE.exists(), (
+            f"Expected shared anti-rationalization file at {self.SHARED_FILE}"
+        )
+
+    def test_has_spirit_vs_letter(self):
+        """File must contain 'spirit' and 'letter' keywords."""
+        content = self.SHARED_FILE.read_text()
+        assert 'spirit' in content, "Expected 'spirit' in shared-anti-rationalization.md"
+        assert 'letter' in content, "Expected 'letter' in shared-anti-rationalization.md"
+
+    def test_has_yagni(self):
+        """File must contain 'YAGNI' keyword."""
+        content = self.SHARED_FILE.read_text()
+        assert 'YAGNI' in content, "Expected 'YAGNI' in shared-anti-rationalization.md"
+
+    def test_has_false_completion(self):
+        """File must contain 'complete' (case-insensitive)."""
+        content = self.SHARED_FILE.read_text()
+        assert 'complete' in content.lower(), (
+            "Expected 'complete' (case-insensitive) in shared-anti-rationalization.md"
+        )
