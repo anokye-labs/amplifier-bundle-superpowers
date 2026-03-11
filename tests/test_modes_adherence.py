@@ -60,7 +60,13 @@ TRANSITION_MAP = {
         "allow_clear": False,
     },
     "verify": {
-        "allowed_transitions": ["finish", "debug", "execute-plan", "brainstorm", "write-plan"],
+        "allowed_transitions": [
+            "finish",
+            "debug",
+            "execute-plan",
+            "brainstorm",
+            "write-plan",
+        ],
         "allow_clear": False,
     },
     "finish": {
@@ -95,7 +101,9 @@ def _parse_frontmatter(content: str) -> dict:
 
 def _transitions_section(content: str) -> str:
     """Extract everything from '## Transitions' to the next top-level '## ' heading (or EOF)."""
-    match = re.search(r"^## Transitions\s*\n(.*?)(?=^## |\Z)", content, re.DOTALL | re.MULTILINE)
+    match = re.search(
+        r"^## Transitions\s*\n(.*?)(?=^## |\Z)", content, re.DOTALL | re.MULTILINE
+    )
     return match.group(1) if match else ""
 
 
@@ -135,7 +143,9 @@ class TestModeTransitionMap:
             content = _read_mode(filename)
             fm = _parse_frontmatter(content)
             actual = fm["mode"]["allow_clear"]
-            assert actual is False, f"{filename}: expected allow_clear=false, got {actual!r}"
+            assert actual is False, (
+                f"{filename}: expected allow_clear=false, got {actual!r}"
+            )
 
         finish_content = _read_mode("finish.md")
         finish_fm = _parse_frontmatter(finish_content)
@@ -273,7 +283,9 @@ class TestAgentInclusions:
             assert "## Scope Boundary" in content, (
                 f"{filename}: missing '## Scope Boundary' section"
             )
-            assert "git push" in content, f"{filename}: Scope Boundary missing 'git push'"
+            assert "git push" in content, (
+                f"{filename}: Scope Boundary missing 'git push'"
+            )
             assert "gh pr create" in content, (
                 f"{filename}: Scope Boundary missing 'gh pr create'"
             )
@@ -304,10 +316,10 @@ class TestModeContentEnrichment:
         )
 
     def test_brainstorm_has_scope_assessment(self) -> None:
-        """brainstorm.md contains scope assessment guidance."""
+        """brainstorm.md contains the '## Scope Assessment' section heading."""
         content = _read_mode("brainstorm.md")
-        assert "scope" in content.lower(), (
-            "brainstorm.md: missing scope assessment guidance (expected 'scope')"
+        assert "## Scope Assessment" in content, (
+            "brainstorm.md: missing '## Scope Assessment' section"
         )
 
     def test_brainstorm_has_shared_anti_rationalization_mention(self) -> None:
