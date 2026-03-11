@@ -357,3 +357,20 @@ class TestModeContentEnrichment:
         assert "@superpowers:context/shared-anti-rationalization.md" in content, (
             "debug.md: missing '@superpowers:context/shared-anti-rationalization.md'"
         )
+
+    def test_execute_plan_has_status_protocol(self) -> None:
+        """execute-plan.md contains the Implementer Status Protocol with DONE and BLOCKED."""
+        content = _read_mode("execute-plan.md")
+        assert "DONE" in content, (
+            "execute-plan.md: missing 'DONE' status in Implementer Status Protocol"
+        )
+        assert "BLOCKED" in content, (
+            "execute-plan.md: missing 'BLOCKED' status in Implementer Status Protocol"
+        )
+
+    def test_execute_plan_has_model_selection(self) -> None:
+        """execute-plan.md contains Model Selection Guidance with 'model'."""
+        content = _read_mode("execute-plan.md")
+        assert "model" in content.lower(), (
+            "execute-plan.md: missing model selection guidance (expected 'model' in content)"
+        )
