@@ -394,3 +394,47 @@ class TestModeContentEnrichment:
         assert "structure" in content.lower(), (
             "write-plan.md: missing 'structure' (expected file structure planning guidance)"
         )
+
+
+# ---------------------------------------------------------------------------
+# 7. TestAgentContentEnrichment
+# ---------------------------------------------------------------------------
+
+
+class TestAgentContentEnrichment:
+    def test_implementer_has_status_protocol(self) -> None:
+        """implementer.md contains Status Protocol with DONE and BLOCKED."""
+        content = _read_agent("implementer.md")
+        assert "DONE" in content, (
+            "implementer.md: missing 'DONE' status in Status Protocol"
+        )
+        assert "BLOCKED" in content, (
+            "implementer.md: missing 'BLOCKED' status in Status Protocol"
+        )
+
+    def test_implementer_has_architecture_guidance(self) -> None:
+        """implementer.md contains Architecture Principles with isolation, small files, or minimal interfaces."""
+        content = _read_agent("implementer.md")
+        assert (
+            "isolation" in content.lower()
+            or "small files" in content.lower()
+            or "minimal interfaces" in content.lower()
+        ), (
+            "implementer.md: missing architecture guidance "
+            "(expected 'isolation', 'small files', or 'minimal interfaces')"
+        )
+
+    def test_code_quality_reviewer_has_architecture_checks(self) -> None:
+        """code-quality-reviewer.md contains Architecture Compliance section with YAGNI."""
+        content = _read_agent("code-quality-reviewer.md")
+        assert "YAGNI" in content, (
+            "code-quality-reviewer.md: missing 'YAGNI' in Architecture Compliance checks"
+        )
+
+    def test_spec_reviewer_distrust_framing(self) -> None:
+        """spec-reviewer.md contains distrust framing with 'suspiciously' or 'incomplete'."""
+        content = _read_agent("spec-reviewer.md")
+        assert "suspiciously" in content.lower() or "incomplete" in content.lower(), (
+            "spec-reviewer.md: missing distrust framing "
+            "(expected 'suspiciously' or 'incomplete')"
+        )
