@@ -258,8 +258,8 @@ class TestFullCycleRecipePerTaskReview:
         recipe = load_recipe(FULL_CYCLE_RECIPE)
         assert recipe is not None
 
-    def test_execute_plan_describes_per_task_pipeline(self):
-        """The execute-plan step must describe per-task sequential review pipeline."""
+    def test_execute_plan_uses_sdd_recipe(self):
+        """The execute-plan step must use type: recipe referencing subagent-driven-development."""
         recipe = load_recipe(FULL_CYCLE_RECIPE)
         # Find the implementation stage
         for stage in recipe["stages"]:
@@ -267,18 +267,15 @@ class TestFullCycleRecipePerTaskReview:
                 # Find execute-plan step
                 for step in stage["steps"]:
                     if step.get("id") == "execute-plan":
-                        # Must reference per-task review or the subagent recipe
+                        # Must use type: recipe
+                        assert step.get("type") == "recipe", (
+                            "execute-plan step must have type: recipe, "
+                            f"got type: {step.get('type')!r}"
+                        )
+                        # Must reference subagent-driven-development
                         step_text = str(step)
-                        assert (
-                            "subagent-driven-development" in step_text
-                            or "per-task" in step_text.lower()
-                            or (
-                                "each task" in step_text.lower()
-                                and "review" in step_text.lower()
-                            )
-                        ), (
-                            "execute-plan step must describe per-task review pipeline, "
-                            "not a single-pass implementation"
+                        assert "subagent-driven-development" in step_text, (
+                            "execute-plan step must reference subagent-driven-development recipe"
                         )
                         return
         raise AssertionError("execute-plan step not found in implementation stage")
