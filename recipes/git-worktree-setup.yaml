@@ -4,7 +4,7 @@
 #
 # Workflow:
 #   1. Check for existing .worktrees/ or worktrees/ directories
-#   2. Determine location (existing dir, check CLAUDE.md/AGENTS.md, or ask user)
+#   2. Determine location (existing dir, check AGENTS.md/.amplifier/, or ask user)
 #   3. Verify gitignore for project-local directories
 #   4. Create worktree with: git worktree add <path> -b <branch-name>
 #   5. Auto-detect project type and run setup (npm install, cargo build, etc.)
@@ -79,7 +79,7 @@ stages:
              -> Use that directory as the base
 
           3. ELSE check for location preferences in project docs:
-             -> Look for CLAUDE.md, AGENTS.md, or .github/worktree-config
+             -> Look for AGENTS.md, .amplifier/, or .github/worktree-config
              -> Check for any documented worktree location preferences
 
           4. ELSE default to `.worktrees/` in project root
