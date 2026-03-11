@@ -114,14 +114,4 @@ For complete reference tables (modes, agents, recipes, anti-patterns, key rules)
 load_skill(skill_name="superpowers-reference")
 ```
 
-For code review guidance:
-
-```
-load_skill(skill_name="code-review-reception")
-```
-
-For parallel agent debugging patterns:
-
-```
-load_skill(skill_name="parallel-agent-dispatch")
-```
+All other methodology skills (debugging, verification, code review, etc.) are provided by obra/superpowers and discovered automatically via the skill tool.

@@ -91,7 +91,7 @@ class TestSkillCount:
 class TestSharedAntiRationalization:
     """Tests for the shared anti-rationalization context file."""
 
-    SHARED_FILE = REPO_ROOT / 'context' / 'shared-anti-rationalization.md'
+    SHARED_FILE = REPO_ROOT / "context" / "shared-anti-rationalization.md"
 
     def test_file_exists(self):
         """The shared anti-rationalization context file must exist."""
@@ -102,17 +102,44 @@ class TestSharedAntiRationalization:
     def test_has_spirit_vs_letter(self):
         """File must contain 'spirit' and 'letter' keywords."""
         content = self.SHARED_FILE.read_text()
-        assert 'spirit' in content, "Expected 'spirit' in shared-anti-rationalization.md"
-        assert 'letter' in content, "Expected 'letter' in shared-anti-rationalization.md"
+        assert "spirit" in content, (
+            "Expected 'spirit' in shared-anti-rationalization.md"
+        )
+        assert "letter" in content, (
+            "Expected 'letter' in shared-anti-rationalization.md"
+        )
 
     def test_has_yagni(self):
         """File must contain 'YAGNI' keyword."""
         content = self.SHARED_FILE.read_text()
-        assert 'YAGNI' in content, "Expected 'YAGNI' in shared-anti-rationalization.md"
+        assert "YAGNI" in content, "Expected 'YAGNI' in shared-anti-rationalization.md"
 
     def test_has_false_completion(self):
         """File must contain 'complete' (case-insensitive)."""
         content = self.SHARED_FILE.read_text()
-        assert 'complete' in content.lower(), (
+        assert "complete" in content.lower(), (
             "Expected 'complete' (case-insensitive) in shared-anti-rationalization.md"
+        )
+
+
+class TestContextFileUpdates:
+    """Tests that context files reflect the simplified skill strategy."""
+
+    PHILOSOPHY_FILE = REPO_ROOT / "context" / "philosophy.md"
+    INSTRUCTIONS_FILE = REPO_ROOT / "context" / "instructions.md"
+
+    def test_philosophy_has_spirit_vs_letter(self):
+        """philosophy.md must contain 'spirit' and 'letter' keywords."""
+        content = self.PHILOSOPHY_FILE.read_text()
+        assert "spirit" in content.lower(), "Expected 'spirit' in context/philosophy.md"
+        assert "letter" in content.lower(), "Expected 'letter' in context/philosophy.md"
+
+    def test_instructions_no_removed_skill_references(self):
+        """instructions.md must not reference removed skills."""
+        content = self.INSTRUCTIONS_FILE.read_text()
+        assert 'skill_name="code-review-reception"' not in content, (
+            'Expected skill_name="code-review-reception" to be removed from context/instructions.md'
+        )
+        assert 'skill_name="parallel-agent-dispatch"' not in content, (
+            'Expected skill_name="parallel-agent-dispatch" to be removed from context/instructions.md'
         )

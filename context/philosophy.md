@@ -104,7 +104,7 @@ Both stages must pass before moving to next task. Order matters - spec complianc
 - **Test passes on first run** — you didn't verify it tests the right thing
 - **Keeping code as "reference"** while writing tests after the fact
 - **"This is different because..."** — it's not different
-- **"It's about the spirit, not the ritual"** — the ritual IS the spirit
+- **"It's about the spirit, not the letter"** — the letter IS the spirit
 
 ## Philosophy in Practice
 
