@@ -124,6 +124,27 @@ Design saved to `docs/plans/YYYY-MM-DD-<topic>-design.md`.
 Ready to create the implementation plan? Use /write-plan to continue.
 ```
 
+## Architecture Guidance
+
+When designing solutions, apply these principles:
+
+- **Design for isolation** — components should have clear boundaries and minimal side effects
+- **Minimize interfaces** — keep contracts between components small and explicit
+- **Prefer composition over inheritance** — build behavior by combining small units rather than deep hierarchies
+- **Design for testability** — structure code so that units can be verified in isolation
+
+## Scope Assessment
+
+Calibrate depth based on the scope of what's being built:
+
+- **Single-subsystem** — streamlined process; focused questions, lighter dependency mapping
+- **Multi-subsystem** — thorough dependency mapping required; trace all integration points before proposing approaches
+- **New system (greenfield)** — emphasis on interface design; establish contracts and boundaries before internals
+
+## Cross-Phase Reminders
+
+@superpowers:context/shared-anti-rationalization.md
+
 ## Anti-Rationalization Table
 
 | Your Excuse | Why It's Wrong |

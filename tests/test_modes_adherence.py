@@ -287,3 +287,32 @@ class TestAgentInclusions:
                 f"{filename}: should NOT contain '## Scope Boundary' "
                 "(non-execution agents don't need this)"
             )
+
+
+# ---------------------------------------------------------------------------
+# 6. TestModeContentEnrichment
+# ---------------------------------------------------------------------------
+
+
+class TestModeContentEnrichment:
+    def test_brainstorm_has_architecture_guidance(self) -> None:
+        """brainstorm.md contains architecture guidance with 'isolation' or 'testability'."""
+        content = _read_mode("brainstorm.md")
+        assert "isolation" in content or "testability" in content, (
+            "brainstorm.md: missing architecture guidance "
+            "(expected 'isolation' or 'testability')"
+        )
+
+    def test_brainstorm_has_scope_assessment(self) -> None:
+        """brainstorm.md contains scope assessment guidance."""
+        content = _read_mode("brainstorm.md")
+        assert "scope" in content.lower(), (
+            "brainstorm.md: missing scope assessment guidance (expected 'scope')"
+        )
+
+    def test_brainstorm_has_shared_anti_rationalization_mention(self) -> None:
+        """brainstorm.md contains the exact @-mention for shared-anti-rationalization.md."""
+        content = _read_mode("brainstorm.md")
+        assert "@superpowers:context/shared-anti-rationalization.md" in content, (
+            "brainstorm.md: missing '@superpowers:context/shared-anti-rationalization.md'"
+        )
