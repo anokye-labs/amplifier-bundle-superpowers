@@ -107,6 +107,8 @@ Do NOT proceed to task breakdown until file structure is decided and confirmed w
 
 ### What the Plan Must Contain
 
+**Plan size:** Plans with more than 15 tasks should be split into phases. Each phase gets its own plan document. This prevents agent timeouts and keeps plans reviewable. If your design has >15 implementation tasks, decompose into 2-3 phases (e.g., "Phase 1: Core infrastructure", "Phase 2: Feature implementation", "Phase 3: Integration & polish").
+
 Each task is ONE action taking 2-5 minutes:
 
 - "Write the failing test" -- one task

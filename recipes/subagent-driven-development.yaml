@@ -77,7 +77,7 @@ stages:
           IMPORTANT: Preserve ALL spec details - they are critical for review.
         output: "plan_data"
         parse_json: true
-        timeout: 300
+        timeout: 600
 
       # -----------------------------------------------------------------------
       # Step 2: Per-Task Pipeline (implement -> spec-review -> quality-review)

@@ -398,6 +398,14 @@ class TestSubagentRecipeAPIResilience:
             "900s was too tight under API load."
         )
 
+    def test_load_plan_step_timeout_is_600(self):
+        """The 'load-plan' step timeout must be 600 (bumped from 300 for large plans)."""
+        step = self._find_step_in_recipe("load-plan")
+        assert step.get("timeout") == 600, (
+            f"Step 'load-plan' timeout must be 600, got {step.get('timeout')!r}. "
+            "300s was too tight for large plans with 15+ tasks."
+        )
+
     # --- on_error tests ---
 
     def test_task_summary_has_on_error_continue(self):

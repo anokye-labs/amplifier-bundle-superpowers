@@ -95,6 +95,10 @@ Expected: PASS
 `git add ... && git commit -m "feat: ..."`
 ```
 
+## Plan Size
+
+**Plans with more than 15 tasks should be split into phases.** Each phase gets its own plan document. This prevents agent timeouts and keeps plans reviewable. If the design has >15 implementation tasks, decompose into 2-3 phases (e.g., "Phase 1: Core infrastructure", "Phase 2: Feature implementation", "Phase 3: Integration & polish").
+
 ## Granularity Rules
 
 **Each step is ONE action:**

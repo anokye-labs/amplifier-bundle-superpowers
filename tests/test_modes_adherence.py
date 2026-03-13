@@ -391,6 +391,14 @@ class TestModeContentEnrichment:
             "write-plan.md: missing 'Step 2.5: Plan File Structure' heading"
         )
 
+    def test_write_plan_has_plan_size_guidance(self) -> None:
+        """write-plan.md contains plan size guidance about 15-task limit and phases."""
+        content = _read_mode("write-plan.md")
+        assert "15" in content and "phase" in content.lower(), (
+            "write-plan.md: missing plan size guidance "
+            "(expected mention of '15' task limit and 'phase' splitting)"
+        )
+
 
 # ---------------------------------------------------------------------------
 # 7. TestAgentContentEnrichment
@@ -433,4 +441,12 @@ class TestAgentContentEnrichment:
         assert "suspiciously" in content.lower() or "incomplete" in content.lower(), (
             "spec-reviewer.md: missing distrust framing "
             "(expected 'suspiciously' or 'incomplete')"
+        )
+
+    def test_plan_writer_has_plan_size_guidance(self) -> None:
+        """plan-writer.md contains plan size guidance about 15-task limit and phases."""
+        content = _read_agent("plan-writer.md")
+        assert "15" in content and "phase" in content.lower(), (
+            "plan-writer.md: missing plan size guidance "
+            "(expected mention of '15' task limit and 'phase' splitting)"
         )
