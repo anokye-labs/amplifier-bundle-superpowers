@@ -114,6 +114,43 @@ Your brain WILL try to talk you out of delegating. Here is every excuse and why 
 | "I need to check something with bash first" | Reading and checking is fine. Writing/modifying is not. Use bash only for read-only investigation. | Use bash for `cat`, `ls`, `git log`, `pytest --collect-only`. Never for modifications. |
 | "The plan only has one task" | One task still gets the full pipeline. Pipeline size doesn't scale with task count. | Delegate to implementer → spec-reviewer → code-quality-reviewer. |
 
+## Implementer Status Protocol
+
+When an implementer completes a task, interpret its status signal to determine next steps:
+
+| Status | Meaning | Orchestrator Action |
+|--------|---------|---------------------|
+| `DONE` | Task complete, tests pass, committed | Proceed to spec-reviewer |
+| `DONE_WITH_CONCERNS` | Task complete but implementer flagged an issue worth noting | Proceed to spec-reviewer; note concern for quality-reviewer |
+| `NEEDS_CONTEXT` | Implementer could not proceed — missing information or unclear requirements | Stop. Provide the missing context. Re-delegate to implementer. |
+| `BLOCKED` | Implementer hit a hard blocker (failing dependency, broken prereq, unresolvable conflict) | Stop. Investigate the blocker. May need `/write-plan` to restructure or `/debug` to resolve. |
+
+**Never rush past NEEDS_CONTEXT or BLOCKED.** Proceeding without resolving these guarantees downstream failures.
+
+## Model Selection Guidance
+
+When delegating to the implementer, use `model_role` to match the task's complexity:
+
+| Task Type | Recommended `model_role` | When to Use |
+|-----------|--------------------------|-------------|
+| Mechanical (rename, move, config change) | `fast` | Simple, well-defined, no logic involved |
+| Standard implementation | `coding` | Typical feature work, single-file changes |
+| Multi-file refactor | `coding` | Changes spanning multiple files with clear pattern |
+| Architecture / design decision | `reasoning` | Complex trade-offs, system-level thinking required |
+
+Pass `model_role` as a parameter in your `delegate()` call:
+```
+delegate(agent="superpowers:implementer", model_role="coding", instruction="...")
+```
+
+Default to `coding` when uncertain.
+
+## Cross-Phase Reminders
+
+Rationalization will occur at every phase. Review before each delegation:
+
+@superpowers:context/shared-anti-rationalization.md
+
 ## For Multi-Task Plans: USE THE RECIPE
 
 If the plan has more than 3 tasks, YOU SHOULD use the recipe instead of manual orchestration:

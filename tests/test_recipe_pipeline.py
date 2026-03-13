@@ -258,8 +258,8 @@ class TestFullCycleRecipePerTaskReview:
         recipe = load_recipe(FULL_CYCLE_RECIPE)
         assert recipe is not None
 
-    def test_execute_plan_describes_per_task_pipeline(self):
-        """The execute-plan step must describe per-task sequential review pipeline."""
+    def test_execute_plan_uses_sdd_recipe(self):
+        """The execute-plan step must use type: recipe referencing subagent-driven-development."""
         recipe = load_recipe(FULL_CYCLE_RECIPE)
         # Find the implementation stage
         for stage in recipe["stages"]:
@@ -267,18 +267,15 @@ class TestFullCycleRecipePerTaskReview:
                 # Find execute-plan step
                 for step in stage["steps"]:
                     if step.get("id") == "execute-plan":
-                        # Must reference per-task review or the subagent recipe
+                        # Must use type: recipe
+                        assert step.get("type") == "recipe", (
+                            "execute-plan step must have type: recipe, "
+                            f"got type: {step.get('type')!r}"
+                        )
+                        # Must reference subagent-driven-development
                         step_text = str(step)
-                        assert (
-                            "subagent-driven-development" in step_text
-                            or "per-task" in step_text.lower()
-                            or (
-                                "each task" in step_text.lower()
-                                and "review" in step_text.lower()
-                            )
-                        ), (
-                            "execute-plan step must describe per-task review pipeline, "
-                            "not a single-pass implementation"
+                        assert "subagent-driven-development" in step_text, (
+                            "execute-plan step must reference subagent-driven-development recipe"
                         )
                         return
         raise AssertionError("execute-plan step not found in implementation stage")
@@ -298,4 +295,133 @@ class TestExecutingPlansRecipeReview:
         assert "PER-TASK REVIEW" in content, (
             "executing-plans.yaml must include a 'PER-TASK REVIEW' section "
             "with spec check, quality check, and test verification requirements"
+        )
+
+
+EXPECTED_RETRY = {
+    "max_attempts": 3,
+    "backoff": "exponential",
+    "initial_delay": 5,
+    "max_delay": 120,
+}
+
+
+class TestSubagentRecipeAPIResilience:
+    """SDD recipe must have retry blocks and resilience config on vulnerable agent steps."""
+
+    def _load(self) -> dict:
+        return load_recipe(SUBAGENT_RECIPE)
+
+    def _find_step_by_id(self, steps: list, step_id: str) -> dict | None:
+        """Recursively find a step by its id field."""
+        for step in steps:
+            if step.get("id") == step_id:
+                return step
+            for sub_key in ("steps",):
+                if sub_key in step:
+                    found = self._find_step_by_id(step[sub_key], step_id)
+                    if found:
+                        return found
+        return None
+
+    def _find_step_in_recipe(self, step_id: str) -> dict:
+        """Find a step by id anywhere in the recipe stages."""
+        recipe = self._load()
+        for stage in recipe["stages"]:
+            found = self._find_step_by_id(stage.get("steps", []), step_id)
+            if found:
+                return found
+        raise AssertionError(f"Step '{step_id}' not found anywhere in recipe")
+
+    def _assert_has_retry(self, step: dict, step_id: str) -> None:
+        assert "retry" in step, (
+            f"Step '{step_id}' is missing a retry block. "
+            "API-vulnerable steps must have retry configuration."
+        )
+        retry = step["retry"]
+        assert retry.get("max_attempts") == EXPECTED_RETRY["max_attempts"], (
+            f"Step '{step_id}' retry.max_attempts must be {EXPECTED_RETRY['max_attempts']}, "
+            f"got {retry.get('max_attempts')!r}"
+        )
+        assert retry.get("backoff") == EXPECTED_RETRY["backoff"], (
+            f"Step '{step_id}' retry.backoff must be '{EXPECTED_RETRY['backoff']}', "
+            f"got {retry.get('backoff')!r}"
+        )
+        assert retry.get("initial_delay") == EXPECTED_RETRY["initial_delay"], (
+            f"Step '{step_id}' retry.initial_delay must be {EXPECTED_RETRY['initial_delay']}, "
+            f"got {retry.get('initial_delay')!r}"
+        )
+        assert retry.get("max_delay") == EXPECTED_RETRY["max_delay"], (
+            f"Step '{step_id}' retry.max_delay must be {EXPECTED_RETRY['max_delay']}, "
+            f"got {retry.get('max_delay')!r}"
+        )
+
+    # --- retry block tests ---
+
+    def test_implement_step_has_retry(self):
+        """The 'implement' step must have a retry block."""
+        step = self._find_step_in_recipe("implement")
+        self._assert_has_retry(step, "implement")
+
+    def test_spec_review_step_has_retry(self):
+        """The 'spec-review' step must have a retry block."""
+        step = self._find_step_in_recipe("spec-review")
+        self._assert_has_retry(step, "spec-review")
+
+    def test_spec_fix_step_has_retry(self):
+        """The 'spec-fix' step must have a retry block."""
+        step = self._find_step_in_recipe("spec-fix")
+        self._assert_has_retry(step, "spec-fix")
+
+    def test_quality_review_step_has_retry(self):
+        """The 'quality-review' step must have a retry block."""
+        step = self._find_step_in_recipe("quality-review")
+        self._assert_has_retry(step, "quality-review")
+
+    def test_quality_fix_step_has_retry(self):
+        """The 'quality-fix' step must have a retry block."""
+        step = self._find_step_in_recipe("quality-fix")
+        self._assert_has_retry(step, "quality-fix")
+
+    def test_full_code_review_step_has_retry(self):
+        """The 'full-code-review' step must have a retry block."""
+        step = self._find_step_in_recipe("full-code-review")
+        self._assert_has_retry(step, "full-code-review")
+
+    # --- timeout tests ---
+
+    def test_implement_step_timeout_is_1200(self):
+        """The 'implement' step timeout must be 1200 (bumped from 900 for API load)."""
+        step = self._find_step_in_recipe("implement")
+        assert step.get("timeout") == 1200, (
+            f"Step 'implement' timeout must be 1200, got {step.get('timeout')!r}. "
+            "900s was too tight under API load."
+        )
+
+    def test_load_plan_step_timeout_is_600(self):
+        """The 'load-plan' step timeout must be 600 (bumped from 300 for large plans)."""
+        step = self._find_step_in_recipe("load-plan")
+        assert step.get("timeout") == 600, (
+            f"Step 'load-plan' timeout must be 600, got {step.get('timeout')!r}. "
+            "300s was too tight for large plans with 15+ tasks."
+        )
+
+    # --- on_error tests ---
+
+    def test_task_summary_has_on_error_continue(self):
+        """The 'task-summary' step must have on_error: continue."""
+        step = self._find_step_in_recipe("task-summary")
+        assert step.get("on_error") == "continue", (
+            f"Step 'task-summary' must have on_error: continue, "
+            f"got {step.get('on_error')!r}. "
+            "Non-critical summary steps must not fail the whole recipe."
+        )
+
+    def test_prepare_approval_has_on_error_continue(self):
+        """The 'prepare-approval' step must have on_error: continue."""
+        step = self._find_step_in_recipe("prepare-approval")
+        assert step.get("on_error") == "continue", (
+            f"Step 'prepare-approval' must have on_error: continue, "
+            f"got {step.get('on_error')!r}. "
+            "Non-critical prep steps must not fail the whole recipe."
         )

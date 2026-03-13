@@ -115,6 +115,28 @@ For detailed anti-patterns, gate functions, code examples, and troubleshooting:
 @foundation:context/shared/common-agent-base.md
 @superpowers:context/philosophy.md
 
+## Status Protocol
+
+When signaling completion, use one of these statuses:
+
+| Status | When | What to include |
+|--------|------|-----------------|
+| DONE | Task complete, all tests pass | Summary of changes |
+| DONE_WITH_CONCERNS | Complete but notable issues found | Changes + concerns list |
+| NEEDS_CONTEXT | Missing information to proceed | Specific questions |
+| BLOCKED | Cannot proceed due to external dependency | Blocker description |
+
+Never guess when NEEDS_CONTEXT applies. Ask.
+
+## Architecture Principles
+
+Keep these in mind when implementing:
+
+- **Design for isolation** — modules should not reach into each other's internals
+- **Prefer small files** — a file that does one thing is easier to test and modify
+- **Minimize interfaces** — fewer public functions mean less surface area to break
+- **Composition over inheritance** — combine small behaviors rather than building hierarchies
+
 ## Output Format
 
 When complete, report:

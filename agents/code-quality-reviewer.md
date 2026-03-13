@@ -132,6 +132,14 @@ For Python projects, also run `python_check` to verify code quality (linting, fo
 2. [Specific action needed]
 ```
 
+### 7. Architecture Compliance
+
+- **YAGNI** — You Aren't Gonna Need It: flag any code added speculatively, not required by spec
+- **File decomposition** — check if a single file has grown to handle multiple concerns
+- **Size growth** — flag files that are large enough to warrant splitting into focused modules
+- **Coupling** — identify modules that reach into each other's internals or share too much state
+- **Over-engineering** — patterns, abstractions, or frameworks added beyond what the problem requires
+
 ## What You DON'T Check
 
 - Spec compliance (spec-reviewer's job)

@@ -265,34 +265,12 @@ stages:
           cat "{{project_path}}/{{paths.plan_path}}"
         output: "plan_doc"
 
-      # Execute the plan using the three-agent pipeline per task
+      # This composes the SDD recipe directly — its internal approval gate at final-review surfaces through the parent automatically
       - id: "execute-plan"
-        agent: "superpowers:implementer"
-        prompt: |
-          Execute the implementation plan using strict TDD with the three-agent per-task review pipeline.
-          
-          Plan:
-          {{plan_doc}}
-          
-          Worktree: {{project_path}}/worktrees/{{paths.feature_slug}}
-          
-          For EACH task in the plan, follow this exact sequence:
-          1. Implement the task following TDD (write failing test first, minimal code to pass)
-          2. Run the full test suite and verify all tests pass
-          3. Commit the changes
-          4. Self-review: verify spec compliance (nothing missing, nothing extra)
-          5. Self-review: verify code quality (clean code, DRY, proper error handling)
-          6. If any issues found in review, fix them and re-verify
-          7. Only proceed to next task when current task passes both reviews
-          
-          CRITICAL:
-          - Work in the worktree directory, not the main project
-          - Follow TDD strictly - no code without failing test first
-          - Each task must be FULLY reviewed before starting the next
-          - Run tests after EVERY change
-          - Stop and report if tests fail unexpectedly
-          
-          Report per-task results including: implementation, spec compliance status, quality status.
+        type: "recipe"
+        recipe: "subagent-driven-development.yaml"
+        context:
+          plan_path: "{{paths.plan_path}}"
         output: "implementation_result"
         on_error: "continue"
 

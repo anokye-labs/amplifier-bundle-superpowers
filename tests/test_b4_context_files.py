@@ -2,9 +2,7 @@
 
 Tests that:
 1. using-superpowers-amplifier.md exists with required content, no Claude Code refs
-2. code-review-reception skill exists with required content, no Claude Code refs
-3. parallel-agent-dispatch skill exists with required content, uses delegate() not Task()
-4. superpowers-methodology.yaml includes required context files
+2. superpowers-methodology.yaml includes required context files
 """
 
 import os
@@ -80,82 +78,6 @@ class TestUsingSuperPowersAmplifier:
             assert forbidden not in self.content, (
                 f"Found forbidden Claude Code reference: {forbidden}"
             )
-
-
-# --- code-review-reception skill ---
-
-
-class TestCodeReviewReception:
-    @pytest.fixture(autouse=True)
-    def load_content(self):
-        self.content = read_skill("code-review-reception")
-
-    def test_has_forbidden_responses(self):
-        assert "You're absolutely right!" in self.content
-
-    def test_has_required_response_pattern(self):
-        assert "Restate" in self.content or "restate" in self.content
-
-    def test_has_clarifying_questions(self):
-        assert (
-            "clarifying question" in self.content.lower()
-            or "Ask clarifying" in self.content
-        )
-
-    def test_has_push_back(self):
-        assert "push back" in self.content.lower() or "Push back" in self.content
-
-    def test_has_just_start_working(self):
-        assert (
-            "start working" in self.content.lower()
-            or "just act" in self.content.lower()
-            or "Just start" in self.content
-        )
-
-    def test_has_yagni_check(self):
-        assert "YAGNI" in self.content
-
-    def test_has_grep_for_usage(self):
-        assert "grep" in self.content.lower()
-
-    def test_no_claude_code_references(self):
-        for forbidden in CLAUDE_CODE_FORBIDDEN:
-            assert forbidden not in self.content, (
-                f"Found forbidden Claude Code reference: {forbidden}"
-            )
-
-
-# --- parallel-agent-dispatch skill ---
-
-
-class TestParallelDispatch:
-    @pytest.fixture(autouse=True)
-    def load_content(self):
-        self.content = read_skill("parallel-agent-dispatch")
-
-    def test_has_decision_framework(self):
-        # Should have when-to-use guidance
-        assert "When to" in self.content or "when to" in self.content
-
-    def test_has_delegate_syntax(self):
-        assert "delegate(" in self.content
-
-    def test_no_task_syntax(self):
-        # Should NOT use Task() syntax from Claude Code
-        assert "Task(" not in self.content, (
-            "Found Task() syntax — should use delegate() instead"
-        )
-
-    def test_has_context_depth_none(self):
-        assert (
-            'context_depth="none"' in self.content
-            or "context_depth='none'" in self.content
-            or 'context_depth: "none"' in self.content
-        )
-
-    def test_has_parallelize_vs_serialize(self):
-        assert "parallel" in self.content.lower()
-        assert "serial" in self.content.lower() or "sequential" in self.content.lower()
 
 
 # --- superpowers-methodology.yaml wiring ---

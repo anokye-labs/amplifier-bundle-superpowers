@@ -60,7 +60,13 @@ TRANSITION_MAP = {
         "allow_clear": False,
     },
     "verify": {
-        "allowed_transitions": ["finish", "debug", "execute-plan", "brainstorm", "write-plan"],
+        "allowed_transitions": [
+            "finish",
+            "debug",
+            "execute-plan",
+            "brainstorm",
+            "write-plan",
+        ],
         "allow_clear": False,
     },
     "finish": {
@@ -95,7 +101,9 @@ def _parse_frontmatter(content: str) -> dict:
 
 def _transitions_section(content: str) -> str:
     """Extract everything from '## Transitions' to the next top-level '## ' heading (or EOF)."""
-    match = re.search(r"^## Transitions\s*\n(.*?)(?=^## |\Z)", content, re.DOTALL | re.MULTILINE)
+    match = re.search(
+        r"^## Transitions\s*\n(.*?)(?=^## |\Z)", content, re.DOTALL | re.MULTILINE
+    )
     return match.group(1) if match else ""
 
 
@@ -135,7 +143,9 @@ class TestModeTransitionMap:
             content = _read_mode(filename)
             fm = _parse_frontmatter(content)
             actual = fm["mode"]["allow_clear"]
-            assert actual is False, f"{filename}: expected allow_clear=false, got {actual!r}"
+            assert actual is False, (
+                f"{filename}: expected allow_clear=false, got {actual!r}"
+            )
 
         finish_content = _read_mode("finish.md")
         finish_fm = _parse_frontmatter(finish_content)
@@ -273,7 +283,9 @@ class TestAgentInclusions:
             assert "## Scope Boundary" in content, (
                 f"{filename}: missing '## Scope Boundary' section"
             )
-            assert "git push" in content, f"{filename}: Scope Boundary missing 'git push'"
+            assert "git push" in content, (
+                f"{filename}: Scope Boundary missing 'git push'"
+            )
             assert "gh pr create" in content, (
                 f"{filename}: Scope Boundary missing 'gh pr create'"
             )
@@ -287,3 +299,154 @@ class TestAgentInclusions:
                 f"{filename}: should NOT contain '## Scope Boundary' "
                 "(non-execution agents don't need this)"
             )
+
+
+# ---------------------------------------------------------------------------
+# 6. TestModeContentEnrichment
+# ---------------------------------------------------------------------------
+
+
+class TestModeContentEnrichment:
+    def test_brainstorm_has_architecture_guidance(self) -> None:
+        """brainstorm.md contains architecture guidance with 'isolation' or 'testability'."""
+        content = _read_mode("brainstorm.md")
+        assert "isolation" in content or "testability" in content, (
+            "brainstorm.md: missing architecture guidance "
+            "(expected 'isolation' or 'testability')"
+        )
+
+    def test_brainstorm_has_scope_assessment(self) -> None:
+        """brainstorm.md contains the '## Scope Assessment' section heading."""
+        content = _read_mode("brainstorm.md")
+        assert "## Scope Assessment" in content, (
+            "brainstorm.md: missing '## Scope Assessment' section"
+        )
+
+    def test_brainstorm_has_shared_anti_rationalization_mention(self) -> None:
+        """brainstorm.md contains the exact @-mention for shared-anti-rationalization.md."""
+        content = _read_mode("brainstorm.md")
+        assert "@superpowers:context/shared-anti-rationalization.md" in content, (
+            "brainstorm.md: missing '@superpowers:context/shared-anti-rationalization.md'"
+        )
+
+    def test_debug_has_architecture_escalation(self) -> None:
+        """debug.md contains '3 attempts' phrase for the Three-Fix architecture escalation rule."""
+        content = _read_mode("debug.md")
+        assert "3 attempts" in content, (
+            "debug.md: missing '3 attempts' (for Three-Fix architecture escalation rule)"
+        )
+
+    def test_debug_has_human_partner_signals(self) -> None:
+        """debug.md contains 'Human Partner Signals' section."""
+        content = _read_mode("debug.md")
+        assert "Human Partner Signals" in content, (
+            "debug.md: missing 'Human Partner Signals' section"
+        )
+
+    def test_debug_fixed_at_mention(self) -> None:
+        """debug.md contains '@superpowers:context/debugging-techniques.md'."""
+        content = _read_mode("debug.md")
+        assert "@superpowers:context/debugging-techniques.md" in content, (
+            "debug.md: missing '@superpowers:context/debugging-techniques.md'"
+        )
+
+    def test_debug_has_shared_anti_rationalization_mention(self) -> None:
+        """debug.md contains the exact @-mention for shared-anti-rationalization.md."""
+        content = _read_mode("debug.md")
+        assert "@superpowers:context/shared-anti-rationalization.md" in content, (
+            "debug.md: missing '@superpowers:context/shared-anti-rationalization.md'"
+        )
+
+    def test_execute_plan_has_status_protocol(self) -> None:
+        """execute-plan.md contains the Implementer Status Protocol with DONE and BLOCKED."""
+        content = _read_mode("execute-plan.md")
+        assert "DONE" in content, (
+            "execute-plan.md: missing 'DONE' status in Implementer Status Protocol"
+        )
+        assert "BLOCKED" in content, (
+            "execute-plan.md: missing 'BLOCKED' status in Implementer Status Protocol"
+        )
+
+    def test_execute_plan_has_model_selection(self) -> None:
+        """execute-plan.md contains Model Selection Guidance with 'model'."""
+        content = _read_mode("execute-plan.md")
+        assert "model" in content.lower(), (
+            "execute-plan.md: missing model selection guidance (expected 'model' in content)"
+        )
+
+    def test_verify_has_regression_pattern(self) -> None:
+        """verify.md contains regression test verification pattern with 'regression' and 'revert'."""
+        content = _read_mode("verify.md")
+        assert "regression" in content.lower(), (
+            "verify.md: missing 'regression' (expected Regression Test Verification pattern)"
+        )
+        assert "revert" in content.lower(), (
+            "verify.md: missing 'revert' (expected Red-Green Regression Cycle with revert step)"
+        )
+
+    def test_write_plan_has_file_structure_planning(self) -> None:
+        """write-plan.md contains the exact Step 2.5 heading for file structure planning."""
+        content = _read_mode("write-plan.md")
+        assert "Step 2.5: Plan File Structure" in content, (
+            "write-plan.md: missing 'Step 2.5: Plan File Structure' heading"
+        )
+
+    def test_write_plan_has_plan_size_guidance(self) -> None:
+        """write-plan.md contains plan size guidance about 15-task limit and phases."""
+        content = _read_mode("write-plan.md")
+        assert "15" in content and "phase" in content.lower(), (
+            "write-plan.md: missing plan size guidance "
+            "(expected mention of '15' task limit and 'phase' splitting)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 7. TestAgentContentEnrichment
+# ---------------------------------------------------------------------------
+
+
+class TestAgentContentEnrichment:
+    def test_implementer_has_status_protocol(self) -> None:
+        """implementer.md contains Status Protocol with DONE and BLOCKED."""
+        content = _read_agent("implementer.md")
+        assert "DONE" in content, (
+            "implementer.md: missing 'DONE' status in Status Protocol"
+        )
+        assert "BLOCKED" in content, (
+            "implementer.md: missing 'BLOCKED' status in Status Protocol"
+        )
+
+    def test_implementer_has_architecture_guidance(self) -> None:
+        """implementer.md contains Architecture Principles with isolation, small files, or minimal interfaces."""
+        content = _read_agent("implementer.md")
+        assert (
+            "isolation" in content.lower()
+            or "small files" in content.lower()
+            or "minimal interfaces" in content.lower()
+        ), (
+            "implementer.md: missing architecture guidance "
+            "(expected 'isolation', 'small files', or 'minimal interfaces')"
+        )
+
+    def test_code_quality_reviewer_has_architecture_checks(self) -> None:
+        """code-quality-reviewer.md contains Architecture Compliance section with YAGNI."""
+        content = _read_agent("code-quality-reviewer.md")
+        assert "YAGNI" in content, (
+            "code-quality-reviewer.md: missing 'YAGNI' in Architecture Compliance checks"
+        )
+
+    def test_spec_reviewer_distrust_framing(self) -> None:
+        """spec-reviewer.md contains distrust framing with 'suspiciously' or 'incomplete'."""
+        content = _read_agent("spec-reviewer.md")
+        assert "suspiciously" in content.lower() or "incomplete" in content.lower(), (
+            "spec-reviewer.md: missing distrust framing "
+            "(expected 'suspiciously' or 'incomplete')"
+        )
+
+    def test_plan_writer_has_plan_size_guidance(self) -> None:
+        """plan-writer.md contains plan size guidance about 15-task limit and phases."""
+        content = _read_agent("plan-writer.md")
+        assert "15" in content and "phase" in content.lower(), (
+            "plan-writer.md: missing plan size guidance "
+            "(expected mention of '15' task limit and 'phase' splitting)"
+        )
