@@ -38,6 +38,7 @@ BEFORE EVERY RESPONSE:
 2. If a mode applies, tell the user which mode and why.
 3. If the user hasn't activated a mode and one clearly applies, say so.
 4. If there is even a 1% chance a mode applies, suggest it. Let the user decide.
+5. **When the user consents** (says "yes", "go ahead", "let's brainstorm", uses `/brainstorm`, `/debug`, etc.), **activate the mode immediately** using `mode(operation="set", name="<mode>")`. Do NOT just describe the mode conversationally — actually call the mode tool so its tool policies and guidance are enforced. A slash command like `/brainstorm` is implicit consent — activate immediately, no further confirmation needed.
 
 This is not optional. This is not a suggestion.
 
