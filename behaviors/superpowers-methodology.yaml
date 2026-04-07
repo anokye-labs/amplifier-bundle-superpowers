@@ -5,10 +5,11 @@ bundle:
     TDD and subagent-driven development methodology with specialized agents,
     interactive modes, and a skills library.
 
-    Provides 5 agents:
+    Provides 6 agents:
     - implementer: TDD implementation with tests
     - spec-reviewer: Validates against spec compliance
     - code-quality-reviewer: Code quality and best practices
+    - code-reviewer: Holistic code review across full changesets
     - brainstormer: Design refinement facilitation
     - plan-writer: Detailed implementation plans
 
@@ -63,6 +64,7 @@ agents:
     - superpowers:implementer
     - superpowers:spec-reviewer
     - superpowers:code-quality-reviewer
+    - superpowers:code-reviewer
     - superpowers:brainstormer
     - superpowers:plan-writer
 
