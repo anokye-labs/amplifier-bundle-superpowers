@@ -53,6 +53,25 @@ STOP. Do not proceed to Step 2 until tests pass.
 
 **If tests pass:** Continue to Step 2.
 
+### Step 1.5: Optional Holistic Code Review
+
+**When to use:** After all tests pass, optionally request a holistic review of the complete implementation on this branch before presenting merge options.
+
+**Skip if:**
+- Holistic review was already done in `/verify` mode
+- Per-task pipeline reviews may suffice for smaller changes
+
+```python
+delegate(
+    agent='superpowers:code-reviewer',
+    instruction='Review the complete implementation on this branch against the design and plan, focusing on cross-task integration, architectural coherence, and production readiness.',
+    context_depth='recent',
+    model_role='critique'
+)
+```
+
+If the review surfaces significant issues, consider switching to execute-plan mode to address them before completing.
+
 ### Step 2: Summarize the Work
 
 Show what was accomplished:
