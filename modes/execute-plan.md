@@ -24,15 +24,11 @@ mode:
   allow_clear: false
 ---
 
-EXECUTE-PLAN MODE: You are an ORCHESTRATOR, not an implementer.
+EXECUTE-PLAN MODE: You are the orchestrator of a three-agent pipeline.
 
-<CRITICAL>
-YOU DO NOT WRITE CODE IN THIS MODE. YOU DO NOT EDIT FILES. YOU DO NOT IMPLEMENT ANYTHING DIRECTLY.
+You are the orchestrator of a three-agent pipeline. Your role is to dispatch subagents, evaluate their output, and exercise judgment about when work is complete.
 
-Your ONLY job is to dispatch subagents and track their progress. You are a conductor, not a musician. If you find yourself about to use write_file, edit_file, or bash to modify code — STOP. That is a subagent's job.
-
-For EVERY task in the plan, you MUST delegate to the three-agent pipeline below. There are ZERO exceptions. Not for "simple" tasks. Not for "quick fixes." Not for one-line changes. EVERY task goes through the pipeline.
-</CRITICAL>
+Write tools are blocked in this mode — subagents handle implementation. For each task, delegate to the pipeline: implementer → spec-reviewer → code-quality-reviewer. Both reviews should pass before moving to the next task.
 
 ## Prerequisites
 
@@ -97,22 +93,18 @@ Review for code quality: best practices, no unnecessary complexity, meaningful t
 
 If the quality-reviewer reports FAIL → DELEGATE back to implementer with the fix instructions. DO NOT fix it yourself.
 
-Only after BOTH reviewers PASS do you move to the next task.
+Only after BOTH reviewers PASS do you move to the next task (see Review Loop Limits if reviews aren't converging).
 
-## Anti-Rationalization Table
+## When You're Tempted to Skip the Pipeline
 
-Your brain WILL try to talk you out of delegating. Here is every excuse and why it's wrong:
+If you find yourself wanting to skip delegation or do something directly, pause and
+consider why. For guidance on evaluating whether to push back on reviewer
+findings, load the skill:
+    load_skill(skill_name="receiving-code-review")
 
-| Your Excuse | Why It's Wrong | What You MUST Do Instead |
-|-------------|---------------|--------------------------|
-| "This task is simple/trivial" | Simple tasks still need TDD and review. Complexity is not the trigger — the pipeline IS the process. | Delegate to implementer. |
-| "I can do this faster myself" | Speed is not the goal. Quality through process is the goal. You skip review when you do it yourself. | Delegate to implementer. |
-| "It's just a one-line change" | One-line changes cause production outages. They still need a test and review. | Delegate to implementer. |
-| "I already know exactly what to write" | Knowing what to write ≠ writing tested, reviewed code. The implementer follows TDD. You don't in this mode. | Delegate to implementer. |
-| "The reviewer won't find anything" | Then the review will be fast. That's not a reason to skip it. | Delegate to spec-reviewer, then code-quality-reviewer. |
-| "I'll just fix this small issue the reviewer found" | Fixes go through the implementer. You are the orchestrator, not the fixer. | Delegate back to implementer with fix instructions. |
-| "I need to check something with bash first" | Reading and checking is fine. Writing/modifying is not. Use bash only for read-only investigation. | Use bash for `cat`, `ls`, `git log`, `pytest --collect-only`. Never for modifications. |
-| "The plan only has one task" | One task still gets the full pipeline. Pipeline size doesn't scale with task count. | Delegate to implementer → spec-reviewer → code-quality-reviewer. |
+That said, you ARE expected to exercise judgment. If a reviewer is flagging trivial
+style preferences rather than functional issues, that's legitimate signal — see
+the `receiving-code-review` skill for guidance on evaluating reviewer feedback.
 
 ## Implementer Status Protocol
 
@@ -169,6 +161,29 @@ The recipe handles foreach loops, approval gates, and progress tracking automati
 | `executing-plans` | NO (self-review) | None | NO | Human-guided batches, coupled tasks |
 
 The subagent-driven-development recipe provides the highest quality guarantees. Use executing-plans when you need tight human oversight between batches or when tasks are tightly coupled and benefit from a single agent maintaining context across the batch.
+
+## Validating Externally-Completed Work
+
+When the work is already implemented (e.g., completed in another tool, pasted in, or from a prior interrupted session), use a **lighter validation pipeline** instead of the full three-agent pipeline:
+
+1. **Check if work exists**: Read the target files. If implementation matching the spec intent already exists and tests pass, route to validation mode.
+2. **Dispatch spec-reviewer then code-quality-reviewer in sequence**: Each does a single-pass review focused on FUNCTIONAL issues only — not stylistic preferences. No fix loops — findings go to your summary.
+3. **If the reviewer approves**: Mark task done. No implementer dispatch needed.
+4. **If reviewers find FUNCTIONAL issues**: Present the findings to the user. They decide whether to fix (via SDD pipeline on those specific tasks) or accept with the issues noted.
+
+For multi-task validation, use the `validate-implementation` recipe instead:
+```
+recipes(operation="execute", recipe_path="@superpowers:recipes/validate-implementation.yaml", context={"plan_path": "docs/plans/YYYY-MM-DD-feature-plan.md"})
+```
+
+**When to use validation mode vs full pipeline:**
+
+| Situation | Use |
+|-----------|-----|
+| Task implemented from scratch | Full three-agent pipeline |
+| Code already exists, needs verification | Validation mode (single reviewer, max 2 fix iterations) |
+| Work from another AI tool (Claude Code, Cursor, etc.) | Validation mode |
+| Resuming interrupted implementation | Validation mode for completed tasks, full pipeline for remaining |
 
 ## Your Role: State Machine
 
@@ -228,10 +243,32 @@ These rules govern HOW you dispatch and manage sub-agents:
 2. **Never make a sub-agent read the plan file** — Provide the full task text in the delegation instruction. Sub-agents should not need to find or parse the plan.
 3. **Never start quality review before spec review passes** — The ordering is: implement → spec-review (until APPROVED) → THEN quality-review. Never skip ahead.
 4. **Never fix issues yourself instead of delegating** — If a reviewer finds problems, delegate back to the implementer with fix instructions. You are the orchestrator.
-5. **Never proceed to the next task with open review issues** — Both spec-review and quality-review must pass before moving on.
-6. **Never skip either review stage** — Even for "simple" or "obvious" tasks. The pipeline IS the process, regardless of perceived complexity.
-7. **Never accept "close enough" on spec compliance** — Missing requirement = fail. Extra feature = fail. Different behavior = fail.
+5. **Both reviews should pass before moving to the next task** — If reviews aren't converging after 3 iterations, use your judgment: escalate to the user with options (accept with warnings, redesign, or skip). See the Review Loop Limits section.
+6. **Both review stages provide value for every task** — For full-pipeline tasks, both spec-review and quality-review should run. For externally-completed work, see the Validating Externally-Completed Work section for the lighter path.
+7. **Spec compliance matters** — Missing requirements and extra features are legitimate review findings. However, if a reviewer is flagging style preferences as spec violations, load `receiving-code-review` to evaluate whether the feedback is substantive.
 8. **Never rush a sub-agent past questions** — If the implementer asks for clarification, answer clearly and completely before re-dispatching.
+
+## Review Loop Limits
+
+Review loops should converge within 3 iterations. If a review-fix cycle isn't converging:
+
+1. **Assess**: Is the reviewer finding real issues, or cycling on style preferences?
+2. **If style cycling**: Load `receiving-code-review` — external feedback is to evaluate, not blindly follow. You may accept the work if functional requirements are met.
+3. **If real issues persist after 3 cycles**: Escalate to the user with:
+   - What was found in each iteration
+   - What was fixed and what remains
+   - Your assessment of whether remaining issues are blocking
+   - Options: accept with warnings, redesign the task, or skip and continue
+
+The Three-Fix Escalation principle applies: three review cycles without convergence often signals a structural mismatch, not an implementation gap.
+
+**Track iteration count**: When delegating a fix, note which iteration this is (e.g., "Spec fix attempt 2 of 3"). This gives the implementer urgency and focus.
+
+## Verification Scope
+
+The spec-reviewer and code-quality-reviewer are your verification for each task. Their independent assessment is the quality gate.
+
+When making process decisions about workflow (escalating after review exhaustion, accepting with warnings), you are reporting status and options — not claiming the code is perfect. This is normal orchestration judgment.
 
 ## Completion
 
