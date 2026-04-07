@@ -1,0 +1,308 @@
+# Validate Implementation Against Plan
+# A lightweight validation recipe that checks already-completed work against an
+# implementation plan. Single-pass review only — no fix cycles, no implementer
+# dispatch. Issues found go into a summary for the human to decide what to do.
+#
+# Key Design Principles:
+#   - NO while_condition loops — single-pass validation only
+#   - NO implementer dispatch — work is already done externally
+#   - Reviewer prompts calibrated for "validation not gatekeeping"
+#   - Only FUNCTIONAL spec violations and CRITICAL quality issues flagged
+#   - Lighter retry config (max_attempts: 2) since this is validation, not creation
+#
+# Workflow:
+#   For EACH task in the plan:
+#     1. Spec validation — single-pass review against spec
+#     2. Quality validation — single-pass review for critical issues only
+#   After ALL tasks:
+#     3. Compile validation summary
+#     4. APPROVAL GATE — human reviews results
+#
+# Usage:
+#   amplifier run "execute superpowers:recipes/validate-implementation.yaml with plan_path=docs/implementation-plan.md"
+#
+# After the approval gate:
+#   amplifier run "list pending approvals"
+#   amplifier run "approve recipe session <session-id> stage review"
+#   amplifier run "resume recipe session <session-id>"
+#
+# =============================================================================
+# CHANGELOG
+# =============================================================================
+#
+# v1.0.0 (2026-04-06):
+#   - NEW FEATURE: Initial release
+#     * Lightweight single-pass validation of externally-completed work
+#     * Spec compliance review (FUNCTIONAL issues only)
+#     * Code quality review (CRITICAL issues only)
+#     * Validation summary with per-task PASS/NEEDS ATTENTION verdicts
+#     * Approval gate for human review of results
+
+name: "validate-implementation"
+description: "Validate externally-completed work against an implementation plan with single-pass review"
+version: "1.0.0"
+author: "Superpowers Bundle"
+tags: ["validation", "review", "single-pass", "lightweight", "spec-compliance", "code-quality"]
+
+context:
+  plan_path: ""  # Required: Path to the implementation plan file
+
+stages:
+  # ============================================================================
+  # STAGE 1: Validation
+  # Single-pass spec and quality review for each task — no fix cycles
+  # ============================================================================
+  - name: "validation"
+    steps:
+      # -----------------------------------------------------------------------
+      # Step 1: Load and Parse Implementation Plan
+      # -----------------------------------------------------------------------
+      - id: "load-plan"
+        agent: "superpowers:plan-writer"
+        prompt: |
+          Load the implementation plan from: {{plan_path}}
+
+          Parse the plan and extract all implementation tasks as a structured list.
+
+          For each task, extract:
+          - task_id: Unique identifier or name
+          - description: What needs to be implemented
+          - spec: The detailed specification/requirements
+          - acceptance_criteria: How to verify the task is complete
+          - files: Files likely to be created or modified
+          - dependencies: Any tasks this depends on (if applicable)
+
+          Return the result as a JSON object with this exact structure:
+          {"tasks": [<array of task objects>], "total_tasks": <number>}
+
+          Each task object in the array must have these keys:
+          - "task_id": string
+          - "description": string
+          - "spec": string (the detailed specification)
+          - "acceptance_criteria": string
+          - "files": array of file paths
+          - "dependencies": array of task_ids (empty array if none)
+
+          The "tasks" key MUST contain the ordered array. Order by dependencies (independent first).
+
+          IMPORTANT: Preserve ALL spec details — they are critical for review.
+        output: "plan_data"
+        parse_json: true
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 5
+          max_delay: 60
+
+      # -----------------------------------------------------------------------
+      # Step 2: Per-Task Validation (spec review + quality review, NO fix loops)
+      # -----------------------------------------------------------------------
+      - id: "per-task-validation"
+        foreach: "{{plan_data.tasks}}"
+        as: "current_task"
+        steps:
+          # --- 2a: Single-pass spec compliance validation ---
+          - id: "validate-spec"
+            agent: "superpowers:spec-reviewer"
+            prompt: |
+              SPEC COMPLIANCE VALIDATION (Single-Pass)
+              =========================================
+
+              This code was implemented EXTERNALLY. Your job is to VALIDATE, not to request style changes.
+
+              TASK SPEC:
+              {{current_task}}
+
+              YOUR MISSION:
+              1. Read the ACTUAL CODE referenced in the task spec
+              2. Compare every spec requirement against what was implemented
+              3. Run the test suite and read the full output
+              4. Check for missing requirements
+
+              IMPORTANT CALIBRATION:
+              Only flag FUNCTIONAL spec violations: missing required features, wrong behavior, failing tests.
+              Do NOT flag: style preferences, alternative implementation approaches, naming conventions
+              you would have chosen differently.
+
+              This is VALIDATION of completed work, not a gatekeeping exercise.
+
+              End your review with exactly one of:
+              - "VERDICT: APPROVED"
+              - "VERDICT: NEEDS ATTENTION — [list FUNCTIONAL-ONLY issues]"
+            output: "spec_verdict"
+            on_error: "continue"
+            retry:
+              max_attempts: 2
+              backoff: exponential
+              initial_delay: 5
+              max_delay: 60
+
+          # --- 2b: Extract spec verdict as boolean ---
+          - id: "extract-spec-verdict"
+            type: "bash"
+            command: |
+              if cat <<'VERDICT_DELIM' | grep -q "VERDICT: APPROVED"
+              {{spec_verdict}}
+              VERDICT_DELIM
+              then
+                echo "true"
+              else
+                echo "false"
+              fi
+            output: "spec_ok"
+            on_error: "continue"
+
+          # --- 2c: Single-pass code quality validation ---
+          - id: "validate-quality"
+            agent: "superpowers:code-quality-reviewer"
+            prompt: |
+              CODE QUALITY VALIDATION (Single-Pass)
+              ======================================
+
+              This is validation of externally-completed work. Only flag CRITICAL quality issues.
+
+              TASK:
+              {{current_task}}
+
+              YOUR MISSION:
+              1. Read the ACTUAL CODE referenced in the task spec
+              2. Run the test suite and read the full output
+              3. Check for: critical bugs, security vulnerabilities, data corruption risks,
+                 unhandled error paths that would crash in production
+
+              IMPORTANT CALIBRATION:
+              Minor style preferences are NOT blocking.
+              Alternative approaches you might have taken are NOT blocking.
+              Only CRITICAL quality issues that affect correctness or safety should be flagged.
+
+              This is VALIDATION, not gatekeeping.
+
+              End your review with exactly one of:
+              - "VERDICT: APPROVED"
+              - "VERDICT: NEEDS ATTENTION — [list CRITICAL-ONLY issues]"
+            output: "quality_verdict"
+            on_error: "continue"
+            retry:
+              max_attempts: 2
+              backoff: exponential
+              initial_delay: 5
+              max_delay: 60
+
+          # --- 2d: Extract quality verdict as boolean ---
+          - id: "extract-quality-verdict"
+            type: "bash"
+            command: |
+              if cat <<'VERDICT_DELIM' | grep -q "VERDICT: APPROVED"
+              {{quality_verdict}}
+              VERDICT_DELIM
+              then
+                echo "true"
+              else
+                echo "false"
+              fi
+            output: "quality_ok"
+            on_error: "continue"
+
+        collect: "validation_results"
+
+      # -----------------------------------------------------------------------
+      # Step 3: Compile Validation Summary
+      # -----------------------------------------------------------------------
+      - id: "validation-summary"
+        agent: "superpowers:plan-writer"
+        prompt: |
+          VALIDATION SUMMARY
+          ==================
+          Compile a comprehensive validation report for all tasks.
+
+          VALIDATION RESULTS (per task):
+          {{validation_results}}
+
+          ORIGINAL PLAN DATA:
+          {{plan_data}}
+
+          For EACH task, report:
+          - **Task ID/Name**: [from plan]
+          - **Spec Compliance**: PASS or NEEDS ATTENTION (with specific functional issues listed)
+          - **Code Quality**: PASS or NEEDS ATTENTION (with specific critical issues listed)
+          - **Files Reviewed**: [list of files from the task]
+
+          Then provide an overall summary:
+          - Total tasks validated
+          - How many passed BOTH reviews
+          - How many need attention (with the specific issues)
+
+          This is a VALIDATION report — present facts clearly so the human can decide next steps.
+          Do NOT recommend specific code changes. Just report what was found.
+        output: "validation_report"
+        on_error: "continue"
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 5
+          max_delay: 60
+
+  # ============================================================================
+  # STAGE 2: Review (APPROVAL GATE)
+  # Present validation results for human decision
+  # ============================================================================
+  - name: "review"
+    steps:
+      - id: "present-results"
+        agent: "superpowers:plan-writer"
+        prompt: |
+          VALIDATION RESULTS — HUMAN REVIEW
+          ===================================
+
+          Present the full validation report for human review.
+
+          VALIDATION REPORT:
+          {{validation_report}}
+
+          VALIDATION DETAILS (per task):
+          {{validation_results}}
+
+          Format the presentation as:
+
+          ## Validation Summary
+          - **Total tasks validated**: [count]
+          - **Passed both reviews**: [count]
+          - **Need attention**: [count]
+
+          ## Per-Task Results
+          [For each task, show spec and quality verdicts with any issues]
+
+          ## Recommended Actions
+          - If all tasks passed: Implementation is validated, ready to proceed.
+          - If some tasks need attention: List the specific tasks and issues.
+            Suggest running the full SDD pipeline (subagent-driven-development.yaml)
+            for any tasks that need fixes.
+
+          Keep the presentation factual and actionable.
+        output: "final_output"
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 5
+          max_delay: 60
+
+    approval:
+      required: true
+      prompt: |
+        ======================================================================
+        VALIDATION COMPLETE — HUMAN REVIEW REQUIRED
+        ======================================================================
+
+        All tasks from the implementation plan have been validated with
+        single-pass spec compliance and code quality reviews.
+
+        Review the validation results above.
+
+        OPTIONS:
+        - APPROVE: Validation accepted. All good, or issues noted for later.
+        - DENY: Issues need fixes. Run the full SDD pipeline
+          (subagent-driven-development.yaml) for tasks that need attention.
+
+        ======================================================================
+      timeout: 0
+      default: "deny"
