@@ -29,12 +29,19 @@
 
 name: "subagent-driven-development"
 description: "Execute implementation plan with fresh agents per task and two-stage review (spec compliance then code quality)"
-version: "3.1.0"
+version: "4.0.4"
 author: "Superpowers Bundle"
-tags: ["implementation", "subagent", "tdd", "two-stage-review", "code-quality", "foreach", "per-task-pipeline"]
+tags: ["implementation", "subagent", "tdd", "two-stage-review", "code-quality", "foreach", "per-task-pipeline", "checkpoint", "tiered-review"]
 
 context:
   plan_path: ""  # Required: Path to the implementation plan file
+  task_parallelism: false  # Set to 2 or 3 to enable bounded parallel task execution
+
+rate_limiting:
+  max_concurrent_llm: 5
+  backoff:
+    enabled: true
+    initial_delay_ms: 2000
 
 stages:
   # ============================================================================
@@ -77,254 +84,92 @@ stages:
           IMPORTANT: Preserve ALL spec details - they are critical for review.
         output: "plan_data"
         parse_json: true
+        timeout: 600
 
       # -----------------------------------------------------------------------
-      # Step 2: Per-Task Pipeline (implement -> spec-review -> quality-review)
-      # Each task goes through the FULL pipeline before the next task starts.
+      # Step 1.1: Validate Plan Structure
+      # Fail early with a clear error if plan_data.tasks is malformed.
+      # Prevents opaque "Cannot access 'task_id' on str" errors in the foreach.
+      # -----------------------------------------------------------------------
+      - id: "validate-plan"
+        type: "bash"
+        timeout: 30
+        command: |
+          python3 - << 'PYEOF'
+          import json, sys, os
+
+          raw = os.environ.get("PLAN_DATA", "null")
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as e:
+              print(f"ERROR: plan_data is not valid JSON: {e}", file=sys.stderr)
+              print(f"Raw plan_data (first 500 chars): {raw[:500]}", file=sys.stderr)
+              sys.exit(1)
+
+          if not isinstance(data, dict) or "tasks" not in data:
+              print("ERROR: plan_data must be a dict with a 'tasks' key", file=sys.stderr)
+              print(f"  type: {type(data).__name__}", file=sys.stderr)
+              if isinstance(data, dict):
+                  print(f"  keys: {list(data.keys())}", file=sys.stderr)
+              print(f"  value (first 500 chars): {json.dumps(data)[:500]}", file=sys.stderr)
+              sys.exit(1)
+
+          tasks = data["tasks"]
+          if not isinstance(tasks, list):
+              print(f"ERROR: plan_data.tasks must be a list, got {type(tasks).__name__}", file=sys.stderr)
+              sys.exit(1)
+
+          if len(tasks) == 0:
+              print("ERROR: plan_data.tasks is empty - no tasks found in plan", file=sys.stderr)
+              sys.exit(1)
+
+          REQUIRED = {"task_id", "description", "spec", "acceptance_criteria", "files"}
+          for i, task in enumerate(tasks):
+              if not isinstance(task, dict):
+                  print(f"ERROR: plan_data.tasks[{i}] is {type(task).__name__}, not a dict", file=sys.stderr)
+                  print(f"  value: {repr(task)}", file=sys.stderr)
+                  print(f"  full tasks: {json.dumps(tasks)}", file=sys.stderr)
+                  sys.exit(1)
+              missing = REQUIRED - set(task.keys())
+              if missing:
+                  tid = task.get("task_id", "UNKNOWN")
+                  print(f"ERROR: plan_data.tasks[{i}] (task_id={tid!r}) missing keys: {sorted(missing)}", file=sys.stderr)
+                  print(f"  keys found: {sorted(task.keys())}", file=sys.stderr)
+                  print(f"  task: {json.dumps(task)}", file=sys.stderr)
+                  sys.exit(1)
+
+          print(f"plan_data validated: {len(tasks)} task(s) ready for execution")
+          PYEOF
+        env:
+          PLAN_DATA: "{{plan_data}}"
+
+      # -----------------------------------------------------------------------
+      # Step 1.5: Initialize project brief from cache (if exists)
+      # -----------------------------------------------------------------------
+      - id: "init-project-brief"
+        type: "bash"
+        timeout: 10
+        command: |
+          if [ -f ".superpowers-project-brief.txt" ]; then
+            cat .superpowers-project-brief.txt
+          else
+            echo ""
+          fi
+        output: "project_brief"
+
+      # -----------------------------------------------------------------------
+      # Step 2: Per-Task Pipeline
       # -----------------------------------------------------------------------
       - id: "per-task-pipeline"
         foreach: "{{plan_data.tasks}}"
         as: "current_task"
-        steps:
-          # --- 2a: Implement the task ---
-          - id: "implement"
-            agent: "superpowers:implementer"
-            prompt: |
-              SUBAGENT IMPLEMENTATION TASK
-              ============================
-
-              You are a fresh agent assigned to implement ONE specific task.
-              Focus ONLY on this task. Do not consider other tasks.
-
-              TASK TO IMPLEMENT:
-              {{current_task}}
-
-              IMPLEMENTATION REQUIREMENTS:
-              1. FOLLOW TDD (Test-Driven Development):
-                 - Write failing tests FIRST based on the spec
-                 - Implement code to make tests pass
-                 - Refactor if needed while keeping tests green
-              2. FOLLOW THE SPEC EXACTLY:
-                 - Implement exactly what the spec says
-                 - Do not add features not in the spec
-                 - Do not skip any spec requirements
-              3. VERIFY BEFORE COMPLETING:
-                 - Run the tests you wrote
-                 - Confirm they pass
-                 - Commit your changes
-
-              OUTPUT FORMAT:
-              Return your implementation results including:
-              - task_id: Which task was implemented
-              - files_changed: [list of files created/modified]
-              - tests_written: [list of test files/functions]
-              - test_results: pass/fail with details
-              - implementation_notes: Key decisions or notes
-              - spec_coverage: How each spec requirement was addressed
-            output: "task_implementation"
-            retry:
-              max_attempts: 3
-              backoff: exponential
-              initial_delay: 5
-              max_delay: 120
-
-          # --- 2b: Spec compliance review loop ---
-          - id: "spec-review-loop"
-            while_condition: "true"
-            break_when: "{{spec_approved}} == 'true'"
-            max_while_iterations: 3
-            steps:
-              - id: "spec-review"
-                agent: "superpowers:spec-reviewer"
-                prompt: |
-                  SPEC COMPLIANCE REVIEW
-                  ======================
-                  Review Stage 1 of 2: Verify implementation matches specification EXACTLY.
-
-                  TASK SPEC:
-                  {{current_task}}
-
-                  IMPLEMENTATION RESULT:
-                  {{task_implementation}}
-
-                  YOUR MISSION:
-                  1. Read the ACTUAL CODE (do not trust the implementation report)
-                  2. Compare every spec requirement against what was implemented
-                  3. Run the test suite and read the full output
-                  4. Check for missing requirements AND extra features
-
-                  VERDICT FORMAT:
-                  End your review with exactly one of:
-                  - "VERDICT: APPROVED" — spec fully implemented, nothing extra
-                  - "VERDICT: NEEDS CHANGES — [list specific issues]"
-
-                  REVIEW CALIBRATION:
-                  If this is a re-review (you can see previous feedback in the implementation result),
-                  focus on whether the SPECIFIC ISSUES from the previous review were addressed.
-                  Do not introduce new stylistic concerns on re-review — only flag functional
-                  spec violations that remain unresolved. Minor style preferences do NOT warrant
-                  NEEDS CHANGES on a re-review.
-
-                  EXCEPTION: Critical bugs, security vulnerabilities, or data-safety issues
-                  introduced by the fix itself must always be flagged regardless of review
-                  iteration. This calibration applies to style preferences, not correctness.
-                output: "spec_verdict"
-                retry:
-                  max_attempts: 3
-                  backoff: exponential
-                  initial_delay: 5
-                  max_delay: 120
-
-              # Extract a safe boolean from the raw markdown verdict
-              - id: "extract-spec-verdict"
-                type: "bash"
-                command: |
-                  if cat <<'VERDICT_DELIM' | grep -q "VERDICT: APPROVED"
-                  {{spec_verdict}}
-                  VERDICT_DELIM
-                  then
-                    echo "true"
-                  else
-                    echo "false"
-                  fi
-                output: "spec_approved"
-
-              - id: "spec-fix"
-                condition: "{{spec_approved}} == 'false'"
-                agent: "superpowers:implementer"
-                prompt: |
-                  SPEC COMPLIANCE FIX (Iteration {{_loop_iteration}} of 3)
-                  =========================================================
-                  The spec reviewer found issues with your implementation.
-                  This is review-fix iteration {{_loop_iteration}} of a maximum 3.
-                  After 3 attempts, remaining issues will be flagged for human review.
-
-                  REVIEW FEEDBACK:
-                  {{spec_verdict}}
-
-                  ORIGINAL TASK:
-                  {{current_task}}
-
-                  Focus on the MOST CRITICAL issues first. Fix ONLY the issues identified.
-                  Do not add anything else. Do not refactor or improve beyond what was flagged.
-                  Run tests after fixing. Commit your changes.
-
-                  Return updated implementation results.
-                output: "task_implementation"
-                retry:
-                  max_attempts: 3
-                  backoff: exponential
-                  initial_delay: 5
-                  max_delay: 120
-
-          # --- 2b.1: Check if spec review exhausted without approval ---
-          - id: "check-spec-resolution"
-            condition: "{{spec_approved}} == 'false'"
-            agent: "superpowers:plan-writer"
-            prompt: |
-              WARNING: Spec review loop exhausted after 3 iterations without approval.
-              Task: {{current_task}}
-              Last spec verdict: {{spec_verdict}}
-
-              Flag this task as having unresolved spec issues. Include this warning
-              in the task summary so the human reviewer is aware during the approval gate.
-            output: "spec_unresolved"
-
-          # --- 2c: Code quality review loop ---
-          - id: "quality-review-loop"
-            while_condition: "true"
-            break_when: "{{quality_approved}} == 'true'"
-            max_while_iterations: 3
-            steps:
-              - id: "quality-review"
-                agent: "superpowers:code-quality-reviewer"
-                prompt: |
-                  CODE QUALITY REVIEW
-                  ===================
-                  Review Stage 2 of 2: Verify code quality and best practices.
-                  Spec compliance has already been verified.
-
-                  TASK:
-                  {{current_task}}
-
-                  IMPLEMENTATION:
-                  {{task_implementation}}
-
-                  YOUR MISSION:
-                  1. Read the ACTUAL CODE
-                  2. Run the test suite and read the full output
-                  3. Check: clean code, DRY, error handling, test quality, maintainability
-                  4. Do NOT change spec behavior — only refactor for quality
-
-                  VERDICT FORMAT:
-                  End your review with exactly one of:
-                  - "VERDICT: APPROVED" — code quality meets standards
-                  - "VERDICT: NEEDS CHANGES — [list specific issues by severity]"
-
-                  Minor/suggestion issues do NOT block approval.
-                  Only critical and major issues require NEEDS CHANGES.
-                output: "quality_verdict"
-                retry:
-                  max_attempts: 3
-                  backoff: exponential
-                  initial_delay: 5
-                  max_delay: 120
-
-              # Extract a safe boolean from the raw markdown verdict
-              - id: "extract-quality-verdict"
-                type: "bash"
-                command: |
-                  if cat <<'VERDICT_DELIM' | grep -q "VERDICT: APPROVED"
-                  {{quality_verdict}}
-                  VERDICT_DELIM
-                  then
-                    echo "true"
-                  else
-                    echo "false"
-                  fi
-                output: "quality_approved"
-
-              - id: "quality-fix"
-                condition: "{{quality_approved}} == 'false'"
-                agent: "superpowers:implementer"
-                prompt: |
-                  CODE QUALITY FIX (Iteration {{_loop_iteration}} of 3)
-                  ======================================================
-                  The code quality reviewer found issues.
-                  This is review-fix iteration {{_loop_iteration}} of a maximum 3.
-                  After 3 attempts, remaining issues will be flagged for human review.
-
-                  REVIEW FEEDBACK:
-                  {{quality_verdict}}
-
-                  ORIGINAL TASK:
-                  {{current_task}}
-
-                  Focus on CRITICAL and IMPORTANT issues only. Minor suggestions do not
-                  block approval. Fix ONLY the quality issues identified. Do NOT change
-                  spec behavior. Run tests after fixing. Commit your changes.
-
-                  Return updated implementation results.
-                output: "task_implementation"
-                retry:
-                  max_attempts: 3
-                  backoff: exponential
-                  initial_delay: 5
-                  max_delay: 120
-
-          # --- 2c.1: Check if quality review exhausted without approval ---
-          - id: "check-quality-resolution"
-            condition: "{{quality_approved}} == 'false'"
-            agent: "superpowers:plan-writer"
-            prompt: |
-              WARNING: Quality review loop exhausted after 3 iterations without approval.
-              Task: {{current_task}}
-              Last quality verdict: {{quality_verdict}}
-
-              Flag this task as having unresolved quality issues. Include this warning
-              in the task summary so the human reviewer is aware during the approval gate.
-            output: "quality_unresolved"
-
+        on_error: "continue"
+        parallel: false
+        type: "recipe"
+        recipe: "single-task-pipeline.yaml"
+        context:
+          current_task: "{{current_task}}"
+          project_brief: "{{project_brief}}"
         collect: "completed_tasks"
 
       # -----------------------------------------------------------------------
@@ -332,6 +177,8 @@ stages:
       # -----------------------------------------------------------------------
       - id: "task-summary"
         agent: "superpowers:plan-writer"
+        timeout: 120
+        model_role: "fast"
         prompt: |
           TASK EXECUTION SUMMARY
           ======================
@@ -372,6 +219,7 @@ stages:
     steps:
       - id: "full-code-review"
         agent: "superpowers:code-quality-reviewer"
+        timeout: 600
         prompt: |
           FINAL COMPREHENSIVE CODE REVIEW
           ================================
@@ -440,6 +288,8 @@ stages:
 
       - id: "prepare-approval"
         agent: "superpowers:implementer"
+        timeout: 600
+        model_role: "fast"
         prompt: |
           Prepare for human approval checkpoint.
 
@@ -493,6 +343,7 @@ stages:
     steps:
       - id: "verify-tests"
         agent: "superpowers:implementer"
+        timeout: 600
         prompt: |
           FINAL VERIFICATION
           ==================
@@ -527,6 +378,8 @@ stages:
       - id: "present-merge-options"
         agent: "foundation:zen-architect"
         mode: "ARCHITECT"
+        timeout: 600
+        model_role: "fast"
         prompt: |
           IMPLEMENTATION COMPLETE - MERGE OPTIONS
           =======================================
